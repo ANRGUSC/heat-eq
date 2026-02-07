@@ -13,15 +13,7 @@ THERMA solves the heat equation:
 
 using an explicit finite difference scheme with automatic stability control (CFL condition).
 
-## 2D Mode (default)
-
-- **Heat brush:** Click and drag on the 2D surface to paint heat. Hold to accumulate. Right-click to cool.
-- **6 presets:** Center hotspot, four corners, ring, cross, random spots, diagonal
-- **Adjustable parameters:** Thermal diffusivity, grid resolution (N x N), domain size, brush radius, brush temperature, simulation speed
-- **Boundary conditions:** Dirichlet (fixed temperature at edges) and Neumann (insulated/zero flux)
-- **Real-time heatmap:** Color-coded 2D temperature field with bilinear interpolation
-
-## 1D Mode
+## 1D Mode (default)
 
 - **Interactive drawing:** Click and drag on the plot to draw custom initial temperature profiles
 - **8 presets:** Sine wave, Gaussian, step function, triangle, two humps, random, square wave, sawtooth
@@ -29,10 +21,18 @@ using an explicit finite difference scheme with automatic stability control (CFL
 - **Boundary conditions:** Dirichlet (fixed temperature) and Neumann (insulated/zero flux)
 - **Real-time visualization:** Color-coded temperature profile with space-time heatmap
 
+## 2D Mode
+
+- **Heat brush:** Click and drag on the 2D surface to paint heat. Hold to accumulate. Right-click to cool.
+- **6 presets:** Center hotspot, four corners, ring, cross, random spots, diagonal
+- **Adjustable parameters:** Thermal diffusivity, grid resolution (N x N), domain size, brush radius, brush temperature, simulation speed
+- **Boundary conditions:** Dirichlet (fixed temperature at edges) and Neumann (insulated/zero flux)
+- **Real-time heatmap:** Color-coded 2D temperature field with bilinear interpolation
+
 ## Usage
 
-1. Open `index.html` (2D) or `index1d.html` (1D) in a web browser
-2. In 2D: paint heat with the brush; in 1D: draw an initial condition or select a preset
+1. Open `index.html` (1D) or `index2d.html` (2D) in a web browser
+2. In 1D: draw an initial condition or select a preset; in 2D: paint heat with the brush
 3. Adjust physics parameters (diffusivity, resolution, domain size)
 4. Set boundary conditions (Dirichlet or Neumann)
 5. Click **Play** to run the simulation, or **Step** to advance manually
@@ -42,8 +42,8 @@ using an explicit finite difference scheme with automatic stability control (CFL
 
 | File | Description |
 |------|-------------|
-| `index.html` | 2D Heat Equation Visualizer (default) |
-| `index1d.html` | 1D Heat Equation Visualizer |
+| `index.html` | 1D Heat Equation Visualizer (default) |
+| `index2d.html` | 2D Heat Equation Visualizer |
 
 No dependencies, no build step -- just open in a browser.
 

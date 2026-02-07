@@ -1,0 +1,957 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>THERMA // 2D Heat Equation Solver</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&family=Rajdhani:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg-deep: #050510;
+  --bg-panel: #0a0a1a;
+  --bg-card: #0f0f25;
+  --neon-cyan: #00fff2;
+  --neon-magenta: #ff00ff;
+  --neon-green: #39ff14;
+  --neon-orange: #ff6a00;
+  --neon-yellow: #ffe600;
+  --neon-red: #ff2040;
+  --text-dim: #4a4a6a;
+  --text-mid: #8888aa;
+  --text-bright: #c8c8e8;
+  --border: #1a1a3a;
+}
+
+body {
+  background: var(--bg-deep);
+  color: var(--text-bright);
+  font-family: 'Rajdhani', sans-serif;
+  overflow: hidden;
+  height: 100vh;
+  width: 100vw;
+}
+
+/* Scanlines */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, #00000008 2px, #00000008 4px);
+  pointer-events: none;
+  z-index: 9999;
+}
+
+.app {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  grid-template-rows: 56px 1fr;
+  height: 100vh;
+  gap: 1px;
+  background: var(--border);
+}
+
+/* ---- HEADER ---- */
+.header {
+  grid-column: 1 / -1;
+  background: var(--bg-panel);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  position: relative;
+}
+.header::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--neon-orange), var(--neon-red), var(--neon-yellow), transparent);
+  opacity: 0.6;
+}
+.logo {
+  font-family: 'Orbitron', monospace;
+  font-weight: 900;
+  font-size: 20px;
+  letter-spacing: 4px;
+  background: linear-gradient(135deg, var(--neon-orange), var(--neon-red));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.logo-sub {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 10px;
+  color: var(--text-dim);
+  letter-spacing: 6px;
+  margin-left: 12px;
+  text-transform: uppercase;
+}
+.header-info {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11px;
+  color: var(--text-dim);
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+.header-info span.val { color: var(--neon-orange); }
+
+/* ---- LEFT PANEL ---- */
+.panel-left {
+  grid-row: 2;
+  background: var(--bg-panel);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+}
+
+.panel-section {
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  padding: 14px;
+  position: relative;
+}
+.panel-section::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 3px; height: 100%;
+  background: var(--neon-orange);
+  opacity: 0.4;
+}
+.section-title {
+  font-family: 'Orbitron', monospace;
+  font-size: 9px;
+  letter-spacing: 3px;
+  color: var(--neon-orange);
+  margin-bottom: 12px;
+  text-transform: uppercase;
+}
+
+.control-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+.control-label {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11px;
+  color: var(--text-mid);
+}
+.control-value {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 13px;
+  color: var(--neon-orange);
+  min-width: 50px;
+  text-align: right;
+}
+
+input[type="range"] {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 4px;
+  background: var(--border);
+  outline: none;
+  margin: 6px 0 10px;
+  border-radius: 2px;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: var(--neon-orange);
+  cursor: pointer;
+  box-shadow: 0 0 8px var(--neon-orange), 0 0 20px #ff6a0030;
+}
+input[type="range"]::-moz-range-thumb {
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: var(--neon-orange);
+  cursor: pointer;
+  border: none;
+}
+
+.btn {
+  font-family: 'Orbitron', monospace;
+  font-size: 10px;
+  letter-spacing: 2px;
+  padding: 9px 14px;
+  border: 1px solid;
+  background: transparent;
+  cursor: pointer;
+  text-transform: uppercase;
+  transition: all 0.2s;
+  width: 100%;
+}
+.btn:disabled { opacity: 0.3; cursor: not-allowed; }
+.btn-orange { color: var(--neon-orange); border-color: var(--neon-orange); }
+.btn-orange:hover:not(:disabled) { background: #ff6a0015; box-shadow: 0 0 10px #ff6a0040; }
+.btn-green { color: var(--neon-green); border-color: var(--neon-green); }
+.btn-green:hover:not(:disabled) { background: #39ff1415; box-shadow: 0 0 10px #39ff1440; }
+.btn-red { color: var(--neon-red); border-color: var(--neon-red); }
+.btn-red:hover:not(:disabled) { background: #ff204015; box-shadow: 0 0 10px #ff204040; }
+.btn-cyan { color: var(--neon-cyan); border-color: var(--neon-cyan); }
+.btn-cyan:hover:not(:disabled) { background: #00fff215; box-shadow: 0 0 10px #00fff240; }
+.btn-magenta { color: var(--neon-magenta); border-color: var(--neon-magenta); }
+.btn-magenta:hover:not(:disabled) { background: #ff00ff15; box-shadow: 0 0 10px #ff00ff40; }
+
+.btn-row { display: flex; gap: 8px; }
+.btn-row .btn { flex: 1; }
+
+.preset-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.preset-grid .btn { font-size: 9px; padding: 7px 6px; letter-spacing: 1px; }
+
+.bc-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.bc-row label {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11px;
+  color: var(--text-mid);
+  flex: 1;
+}
+.bc-input {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 12px;
+  width: 60px;
+  background: var(--bg-deep);
+  border: 1px solid var(--border);
+  color: var(--neon-orange);
+  padding: 4px 6px;
+  text-align: center;
+  outline: none;
+}
+.bc-input:focus { border-color: var(--neon-orange); }
+
+.draw-hint {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 10px;
+  color: var(--text-dim);
+  line-height: 1.6;
+  margin-top: 4px;
+}
+
+/* ---- MAIN CANVAS ---- */
+.canvas-main {
+  background: var(--bg-deep);
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.canvas-label {
+  position: absolute;
+  top: 8px;
+  left: 12px;
+  font-family: 'Orbitron', monospace;
+  font-size: 9px;
+  letter-spacing: 3px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  z-index: 2;
+  pointer-events: none;
+}
+
+/* Brush cursor indicator */
+.brush-cursor {
+  position: fixed;
+  border: 1px solid var(--neon-orange);
+  border-radius: 50%;
+  pointer-events: none;
+  opacity: 0.5;
+  z-index: 3;
+  box-shadow: 0 0 6px #ff6a0040;
+  display: none;
+  transform: translate(-50%, -50%);
+}
+
+/* Color bar */
+.color-bar {
+  position: absolute;
+  right: 16px;
+  top: 40px;
+  bottom: 40px;
+  width: 16px;
+  border: 1px solid var(--border);
+  z-index: 2;
+  pointer-events: none;
+}
+.color-bar-label {
+  position: absolute;
+  right: 38px;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 9px;
+  color: var(--text-dim);
+  z-index: 2;
+  pointer-events: none;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: var(--bg-deep); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- HEADER -->
+  <header class="header">
+    <div style="display:flex;align-items:baseline;">
+      <span class="logo">THERMA</span>
+      <span class="logo-sub">2D Heat Equation</span>
+    </div>
+    <div class="header-info">
+      <span>t = <span class="val" id="timeDisplay">0.0000</span>s</span>
+      <span>step <span class="val" id="stepDisplay">0</span></span>
+      <span>max <span class="val" id="maxTempDisplay">0.0</span></span>
+      <span>∂u/∂t = α∇²u</span>
+      <a href="index.html" style="display:inline-flex;align-items:center;gap:6px;padding:8px 20px;font-family:'Orbitron',monospace;font-size:12px;font-weight:700;letter-spacing:3px;text-transform:uppercase;text-decoration:none;color:#050510;background:linear-gradient(135deg,var(--neon-cyan),var(--neon-magenta));border-radius:2px;box-shadow:0 0 14px #00fff260,0 0 30px #ff00ff30;">&#9632; 1D MODE</a>
+    </div>
+  </header>
+
+  <!-- LEFT PANEL -->
+  <aside class="panel-left">
+    <div class="panel-section">
+      <div class="section-title">Physics</div>
+      <div class="control-row">
+        <span class="control-label">Diffusivity α</span>
+        <span class="control-value" id="alphaVal">0.50</span>
+      </div>
+      <input type="range" id="alphaSlider" min="1" max="100" value="50">
+      <div class="control-row">
+        <span class="control-label">Resolution N×N</span>
+        <span class="control-value" id="resVal">100</span>
+      </div>
+      <input type="range" id="resSlider" min="50" max="200" value="100" step="10">
+      <div class="control-row">
+        <span class="control-label">Domain Size L</span>
+        <span class="control-value" id="lenVal">1.00</span>
+      </div>
+      <input type="range" id="lenSlider" min="10" max="200" value="100">
+    </div>
+
+    <div class="panel-section">
+      <div class="section-title">Boundary Conditions</div>
+      <div class="bc-row">
+        <label>Edge temp</label>
+        <input class="bc-input" id="bcEdge" type="number" value="0" step="0.1">
+      </div>
+      <div style="margin-top:6px;">
+        <div class="btn-row">
+          <button class="btn btn-cyan" id="btnDirichlet">Dirichlet</button>
+          <button class="btn btn-magenta" id="btnNeumann">Neumann</button>
+        </div>
+      </div>
+      <div class="draw-hint" style="margin-top:6px;">
+        Dirichlet: fixed temp at edges<br>
+        Neumann: insulated (zero flux)
+      </div>
+    </div>
+
+    <div class="panel-section">
+      <div class="section-title">Heat Brush</div>
+      <div class="draw-hint" style="margin-bottom:8px;">
+        Click & drag to paint heat onto the surface. Hold to accumulate. Right-click to cool.
+      </div>
+      <div class="control-row">
+        <span class="control-label">Brush Radius</span>
+        <span class="control-value" id="brushVal">8</span>
+      </div>
+      <input type="range" id="brushSlider" min="2" max="30" value="8">
+      <div class="control-row">
+        <span class="control-label">Brush Temp</span>
+        <span class="control-value" id="brushTempVal">1.00</span>
+      </div>
+      <input type="range" id="brushTempSlider" min="10" max="200" value="100">
+    </div>
+
+    <div class="panel-section">
+      <div class="section-title">Presets</div>
+      <div class="preset-grid">
+        <button class="btn btn-orange" onclick="presetCenter()">Center Hot</button>
+        <button class="btn btn-orange" onclick="presetCorners()">4 Corners</button>
+        <button class="btn btn-orange" onclick="presetRing()">Ring</button>
+        <button class="btn btn-orange" onclick="presetCross()">Cross</button>
+        <button class="btn btn-orange" onclick="presetRandom()">Random</button>
+        <button class="btn btn-orange" onclick="presetDiagonal()">Diagonal</button>
+      </div>
+    </div>
+
+    <div class="panel-section">
+      <div class="section-title">Simulation</div>
+      <div class="control-row">
+        <span class="control-label">Speed</span>
+        <span class="control-value" id="speedVal">5x</span>
+      </div>
+      <input type="range" id="speedSlider" min="1" max="20" value="5">
+      <div class="btn-row" style="margin-top:8px;">
+        <button class="btn btn-green" id="btnPlay">Play</button>
+        <button class="btn btn-orange" id="btnStep">Step</button>
+      </div>
+      <div style="margin-top:8px;">
+        <button class="btn btn-red" id="btnClear">Clear</button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN 2D HEATMAP -->
+  <main class="canvas-main" id="canvasArea">
+    <div class="canvas-label">Temperature Field u(x, y, t)</div>
+    <canvas id="mainCanvas"></canvas>
+    <div class="brush-cursor" id="brushCursor"></div>
+    <div class="color-bar" id="colorBar"></div>
+    <div class="color-bar-label" id="cbLabelTop" style="top:36px;">1.0</div>
+    <div class="color-bar-label" id="cbLabelMid" style="top:50%;">0.5</div>
+    <div class="color-bar-label" id="cbLabelBot" style="bottom:36px;">0.0</div>
+  </main>
+</div>
+
+<script>
+// ============================================================
+//  THERMA — 2D Heat Equation Visualizer
+//  ∂u/∂t = α(∂²u/∂x² + ∂²u/∂y²)   (explicit Euler)
+// ============================================================
+
+const canvas = document.getElementById('mainCanvas');
+const ctx = canvas.getContext('2d');
+const canvasArea = document.getElementById('canvasArea');
+const brushCursor = document.getElementById('brushCursor');
+const colorBar = document.getElementById('colorBar');
+const cbLabelTop = document.getElementById('cbLabelTop');
+const cbLabelMid = document.getElementById('cbLabelMid');
+const cbLabelBot = document.getElementById('cbLabelBot');
+
+// Controls
+const alphaSlider = document.getElementById('alphaSlider');
+const resSlider = document.getElementById('resSlider');
+const lenSlider = document.getElementById('lenSlider');
+const speedSlider = document.getElementById('speedSlider');
+const brushSlider = document.getElementById('brushSlider');
+const brushTempSlider = document.getElementById('brushTempSlider');
+const bcEdgeInput = document.getElementById('bcEdge');
+const btnPlay = document.getElementById('btnPlay');
+const btnStep = document.getElementById('btnStep');
+const btnClear = document.getElementById('btnClear');
+const btnDirichlet = document.getElementById('btnDirichlet');
+const btnNeumann = document.getElementById('btnNeumann');
+
+// Display
+const alphaVal = document.getElementById('alphaVal');
+const resVal = document.getElementById('resVal');
+const lenVal = document.getElementById('lenVal');
+const speedVal = document.getElementById('speedVal');
+const brushVal = document.getElementById('brushVal');
+const brushTempVal = document.getElementById('brushTempVal');
+const timeDisplay = document.getElementById('timeDisplay');
+const stepDisplay = document.getElementById('stepDisplay');
+const maxTempDisplay = document.getElementById('maxTempDisplay');
+
+// State
+let N = 100;
+let L = 1.0;
+let alpha = 0.5;
+let dx, dt;
+let u, uNew;        // Float64Array of N*N
+let simTime = 0;
+let simStep = 0;
+let isPlaying = false;
+let bcMode = 'dirichlet';
+
+// Drawing state
+let isDrawing = false;
+let drawSign = 1; // +1 for heat, -1 for cool
+let mouseGridX = -1, mouseGridY = -1;
+
+// Rendering
+let renderSize = 400;
+
+// ---- Grid helpers ----
+function idx(i, j) { return i * N + j; }
+
+function allocGrid() {
+  u = new Float64Array(N * N);
+  uNew = new Float64Array(N * N);
+}
+
+// ---- Slider updates ----
+alphaSlider.oninput = () => {
+  alpha = parseInt(alphaSlider.value) / 100;
+  alphaVal.textContent = alpha.toFixed(2);
+  computeDt();
+};
+resSlider.oninput = () => {
+  resVal.textContent = resSlider.value;
+};
+resSlider.onchange = () => {
+  N = parseInt(resSlider.value);
+  clearSim();
+};
+lenSlider.oninput = () => {
+  L = parseInt(lenSlider.value) / 100;
+  lenVal.textContent = L.toFixed(2);
+  computeDt();
+};
+speedSlider.oninput = () => {
+  speedVal.textContent = speedSlider.value + 'x';
+};
+brushSlider.oninput = () => {
+  brushVal.textContent = brushSlider.value;
+  updateBrushCursorSize();
+};
+brushTempSlider.oninput = () => {
+  const v = parseInt(brushTempSlider.value) / 100;
+  brushTempVal.textContent = v.toFixed(2);
+};
+
+// BC mode toggle
+btnDirichlet.addEventListener('click', () => {
+  bcMode = 'dirichlet';
+  btnDirichlet.style.borderWidth = '2px';
+  btnDirichlet.style.opacity = '1';
+  btnNeumann.style.borderWidth = '1px';
+  btnNeumann.style.opacity = '0.5';
+});
+btnNeumann.addEventListener('click', () => {
+  bcMode = 'neumann';
+  btnNeumann.style.borderWidth = '2px';
+  btnNeumann.style.opacity = '1';
+  btnDirichlet.style.borderWidth = '1px';
+  btnDirichlet.style.opacity = '0.5';
+});
+btnDirichlet.style.borderWidth = '2px';
+btnNeumann.style.opacity = '0.5';
+
+// ---- Compute stable dt ----
+function computeDt() {
+  dx = L / (N - 1);
+  // 2D stability: dt <= dx^2 / (4*alpha)
+  dt = 0.2 * dx * dx / (alpha + 1e-10);
+}
+
+// ---- Canvas resize (no DPR — we use ImageData directly) ----
+function resizeCanvas() {
+  const rect = canvasArea.getBoundingClientRect();
+  const maxSize = Math.min(rect.width - 80, rect.height - 60);
+  renderSize = Math.max(200, Math.floor(maxSize));
+
+  // 1:1 pixel mapping — no DPR scaling since we write raw ImageData
+  canvas.width = renderSize;
+  canvas.height = renderSize;
+  canvas.style.width = renderSize + 'px';
+  canvas.style.height = renderSize + 'px';
+
+  drawColorBar();
+  updateBrushCursorSize();
+  drawHeatmap();
+}
+window.addEventListener('resize', resizeCanvas);
+
+// ---- Color bar ----
+function drawColorBar() {
+  const bar = colorBar;
+  const barH = renderSize - 20;
+  bar.style.height = barH + 'px';
+
+  const barCanvas = document.createElement('canvas');
+  barCanvas.width = 16;
+  barCanvas.height = barH;
+  const bctx = barCanvas.getContext('2d');
+  for (let py = 0; py < barH; py++) {
+    const val = 1 - py / barH;
+    const c = tempToColor(val);
+    bctx.fillStyle = `rgb(${c[0]},${c[1]},${c[2]})`;
+    bctx.fillRect(0, py, 16, 1);
+  }
+  bar.style.backgroundImage = `url(${barCanvas.toDataURL()})`;
+  bar.style.backgroundSize = '100% 100%';
+}
+
+// ---- Clear / Reset ----
+function clearSim() {
+  isPlaying = false;
+  btnPlay.textContent = 'Play';
+  simTime = 0;
+  simStep = 0;
+  computeDt();
+  allocGrid();
+  drawHeatmap();
+  updateInfo();
+}
+
+// ---- Presets ----
+function setPreset(fn) {
+  if (isPlaying) { isPlaying = false; btnPlay.textContent = 'Play'; }
+  simTime = 0;
+  simStep = 0;
+  computeDt();
+  allocGrid();
+  for (let i = 0; i < N; i++) {
+    for (let j = 0; j < N; j++) {
+      const x = j / (N - 1);
+      const y = i / (N - 1);
+      u[idx(i, j)] = fn(x, y);
+    }
+  }
+  applyBC();
+  drawHeatmap();
+  updateInfo();
+}
+
+function presetCenter() {
+  setPreset((x, y) => Math.exp(-((x - 0.5) ** 2 + (y - 0.5) ** 2) / 0.01));
+}
+function presetCorners() {
+  setPreset((x, y) => {
+    let v = 0;
+    v += 0.8 * Math.exp(-((x) ** 2 + (y) ** 2) / 0.01);
+    v += 0.8 * Math.exp(-((x - 1) ** 2 + (y) ** 2) / 0.01);
+    v += 0.8 * Math.exp(-((x) ** 2 + (y - 1) ** 2) / 0.01);
+    v += 0.8 * Math.exp(-((x - 1) ** 2 + (y - 1) ** 2) / 0.01);
+    return v;
+  });
+}
+function presetRing() {
+  setPreset((x, y) => {
+    const r = Math.sqrt((x - 0.5) ** 2 + (y - 0.5) ** 2);
+    return Math.exp(-((r - 0.25) ** 2) / 0.002);
+  });
+}
+function presetCross() {
+  setPreset((x, y) => {
+    const cx = Math.exp(-((x - 0.5) ** 2) / 0.003);
+    const cy = Math.exp(-((y - 0.5) ** 2) / 0.003);
+    return Math.max(cx * (y > 0.3 && y < 0.7 ? 1 : 0), cy * (x > 0.3 && x < 0.7 ? 1 : 0));
+  });
+}
+function presetRandom() {
+  const spots = [];
+  for (let s = 0; s < 8; s++) {
+    spots.push({ x: Math.random(), y: Math.random(), temp: 0.5 + Math.random() * 0.5 });
+  }
+  setPreset((x, y) => {
+    let v = 0;
+    for (const s of spots) {
+      v += s.temp * Math.exp(-((x - s.x) ** 2 + (y - s.y) ** 2) / 0.005);
+    }
+    return Math.min(v, 1.5);
+  });
+}
+function presetDiagonal() {
+  setPreset((x, y) => {
+    const d = Math.abs(x - y);
+    return Math.exp(-(d ** 2) / 0.003);
+  });
+}
+
+// ---- Apply boundary conditions ----
+function applyBC() {
+  const edgeVal = parseFloat(bcEdgeInput.value) || 0;
+  if (bcMode === 'dirichlet') {
+    for (let k = 0; k < N; k++) {
+      u[idx(0, k)] = edgeVal;
+      u[idx(N - 1, k)] = edgeVal;
+      u[idx(k, 0)] = edgeVal;
+      u[idx(k, N - 1)] = edgeVal;
+    }
+  } else {
+    for (let k = 1; k < N - 1; k++) {
+      u[idx(0, k)] = u[idx(1, k)];
+      u[idx(N - 1, k)] = u[idx(N - 2, k)];
+      u[idx(k, 0)] = u[idx(k, 1)];
+      u[idx(k, N - 1)] = u[idx(k, N - 2)];
+    }
+    u[idx(0, 0)] = u[idx(1, 1)];
+    u[idx(0, N - 1)] = u[idx(1, N - 2)];
+    u[idx(N - 1, 0)] = u[idx(N - 2, 1)];
+    u[idx(N - 1, N - 1)] = u[idx(N - 2, N - 2)];
+  }
+}
+
+// ---- Simulation step (explicit Euler, 2D) ----
+function simStepOnce() {
+  const r = alpha * dt / (dx * dx);
+
+  for (let i = 1; i < N - 1; i++) {
+    for (let j = 1; j < N - 1; j++) {
+      const k = idx(i, j);
+      uNew[k] = u[k] + r * (
+        u[idx(i - 1, j)] + u[idx(i + 1, j)] +
+        u[idx(i, j - 1)] + u[idx(i, j + 1)] -
+        4 * u[k]
+      );
+    }
+  }
+
+  for (let k = 0; k < N; k++) {
+    uNew[idx(0, k)] = u[idx(0, k)];
+    uNew[idx(N - 1, k)] = u[idx(N - 1, k)];
+    uNew[idx(k, 0)] = u[idx(k, 0)];
+    uNew[idx(k, N - 1)] = u[idx(k, N - 1)];
+  }
+
+  const tmp = u;
+  u = uNew;
+  uNew = tmp;
+  applyBC();
+
+  simTime += dt;
+  simStep++;
+}
+
+// ---- Temperature to color (same palette as 1D) ----
+function tempToColor(val) {
+  const t = val;
+  if (t <= -0.8) return [20, 0, 60];
+  if (t <= 0) {
+    const s = (t + 0.8) / 0.8;
+    return lerpColor([20, 0, 60], [10, 10, 40], s);
+  }
+  if (t <= 0.15) {
+    const s = t / 0.15;
+    return lerpColor([10, 10, 40], [0, 50, 120], s);
+  }
+  if (t <= 0.3) {
+    const s = (t - 0.15) / 0.15;
+    return lerpColor([0, 50, 120], [0, 200, 200], s);
+  }
+  if (t <= 0.5) {
+    const s = (t - 0.3) / 0.2;
+    return lerpColor([0, 200, 200], [50, 255, 50], s);
+  }
+  if (t <= 0.7) {
+    const s = (t - 0.5) / 0.2;
+    return lerpColor([50, 255, 50], [255, 230, 0], s);
+  }
+  if (t <= 0.85) {
+    const s = (t - 0.7) / 0.15;
+    return lerpColor([255, 230, 0], [255, 100, 0], s);
+  }
+  if (t <= 1.0) {
+    const s = (t - 0.85) / 0.15;
+    return lerpColor([255, 100, 0], [255, 30, 30], s);
+  }
+  const s = Math.min((t - 1.0) / 0.5, 1);
+  return lerpColor([255, 30, 30], [255, 220, 255], s);
+}
+
+function lerpColor(a, b, t) {
+  t = Math.max(0, Math.min(1, t));
+  return [
+    Math.round(a[0] + (b[0] - a[0]) * t),
+    Math.round(a[1] + (b[1] - a[1]) * t),
+    Math.round(a[2] + (b[2] - a[2]) * t)
+  ];
+}
+
+// ---- Draw 2D heatmap ----
+function drawHeatmap() {
+  const size = renderSize;
+  const imgData = ctx.createImageData(size, size);
+  const data = imgData.data;
+
+  for (let py = 0; py < size; py++) {
+    const gi = (py / size) * (N - 1);
+    const i0 = Math.floor(gi);
+    const i1 = Math.min(i0 + 1, N - 1);
+    const fi = gi - i0;
+
+    for (let px = 0; px < size; px++) {
+      const gj = (px / size) * (N - 1);
+      const j0 = Math.floor(gj);
+      const j1 = Math.min(j0 + 1, N - 1);
+      const fj = gj - j0;
+
+      // Bilinear interpolation
+      const v00 = u[idx(i0, j0)];
+      const v10 = u[idx(i1, j0)];
+      const v01 = u[idx(i0, j1)];
+      const v11 = u[idx(i1, j1)];
+      const val = v00 * (1 - fi) * (1 - fj) + v10 * fi * (1 - fj) +
+                  v01 * (1 - fi) * fj + v11 * fi * fj;
+
+      const color = tempToColor(val);
+      const pidx = (py * size + px) * 4;
+      data[pidx] = color[0];
+      data[pidx + 1] = color[1];
+      data[pidx + 2] = color[2];
+      data[pidx + 3] = 255;
+    }
+  }
+
+  ctx.putImageData(imgData, 0, 0);
+
+  // Grid overlay for low N
+  if (N <= 60) {
+    ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+    ctx.lineWidth = 0.5;
+    const cellSize = size / N;
+    for (let i = 0; i <= N; i++) {
+      const p = i * cellSize;
+      ctx.beginPath(); ctx.moveTo(p, 0); ctx.lineTo(p, size); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, p); ctx.lineTo(size, p); ctx.stroke();
+    }
+  }
+}
+
+function updateInfo() {
+  timeDisplay.textContent = simTime.toFixed(4);
+  stepDisplay.textContent = simStep;
+  let mx = -Infinity;
+  for (let k = 0; k < N * N; k++) {
+    if (u[k] > mx) mx = u[k];
+  }
+  maxTempDisplay.textContent = mx.toFixed(3);
+
+  const top = Math.max(mx, 1).toFixed(1);
+  const mid = (Math.max(mx, 1) / 2).toFixed(1);
+  cbLabelTop.textContent = top;
+  cbLabelMid.textContent = mid;
+}
+
+// ---- Brush ----
+function applyBrush(gi, gj, sign) {
+  const radius = parseInt(brushSlider.value);
+  const bTemp = parseInt(brushTempSlider.value) / 100;
+  const strength = bTemp * 0.3;
+
+  for (let di = -radius; di <= radius; di++) {
+    for (let dj = -radius; dj <= radius; dj++) {
+      const ni = gi + di;
+      const nj = gj + dj;
+      if (ni < 0 || ni >= N || nj < 0 || nj >= N) continue;
+
+      const dist2 = di * di + dj * dj;
+      const r2 = radius * radius;
+      if (dist2 > r2) continue;
+
+      const w = Math.exp(-dist2 / (r2 * 0.3));
+      u[idx(ni, nj)] += sign * strength * w;
+      if (u[idx(ni, nj)] < -1) u[idx(ni, nj)] = -1;
+    }
+  }
+  applyBC();
+}
+
+function updateBrushCursorSize() {
+  const radius = parseInt(brushSlider.value);
+  const pixelD = (radius / N) * renderSize * 2;
+  brushCursor.style.width = pixelD + 'px';
+  brushCursor.style.height = pixelD + 'px';
+}
+
+// ---- Mouse interaction ----
+// Use getBoundingClientRect for accurate positioning regardless of layout
+function canvasToGrid(e) {
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+  const cssW = rect.width;
+  const cssH = rect.height;
+  if (mx < 0 || mx >= cssW || my < 0 || my >= cssH) return null;
+
+  const gj = Math.floor((mx / cssW) * N);
+  const gi = Math.floor((my / cssH) * N);
+  return { gi: Math.max(0, Math.min(gi, N - 1)), gj: Math.max(0, Math.min(gj, N - 1)) };
+}
+
+canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+canvas.addEventListener('mousedown', (e) => {
+  e.preventDefault();
+  const pt = canvasToGrid(e);
+  if (!pt) return;
+  isDrawing = true;
+  drawSign = e.button === 2 ? -1 : 1;
+  mouseGridX = pt.gj;
+  mouseGridY = pt.gi;
+  applyBrush(pt.gi, pt.gj, drawSign);
+  drawHeatmap();
+});
+
+canvas.addEventListener('mousemove', (e) => {
+  // Brush cursor follows mouse using fixed positioning (always accurate)
+  const radius = parseInt(brushSlider.value);
+  const pixelD = (radius / N) * canvas.getBoundingClientRect().width * 2;
+  brushCursor.style.width = pixelD + 'px';
+  brushCursor.style.height = pixelD + 'px';
+  brushCursor.style.left = e.clientX + 'px';
+  brushCursor.style.top = e.clientY + 'px';
+  brushCursor.style.display = 'block';
+
+  if (!isDrawing) return;
+  const pt = canvasToGrid(e);
+  if (!pt) return;
+  mouseGridX = pt.gj;
+  mouseGridY = pt.gi;
+  applyBrush(pt.gi, pt.gj, drawSign);
+  if (!isPlaying) drawHeatmap();
+});
+
+canvas.addEventListener('mouseup', () => { isDrawing = false; });
+canvas.addEventListener('mouseleave', () => {
+  isDrawing = false;
+  brushCursor.style.display = 'none';
+});
+
+// ---- Buttons ----
+btnPlay.addEventListener('click', () => {
+  isPlaying = !isPlaying;
+  btnPlay.textContent = isPlaying ? 'Pause' : 'Play';
+});
+
+btnStep.addEventListener('click', () => {
+  isPlaying = false;
+  btnPlay.textContent = 'Play';
+  const stepsPerClick = parseInt(speedSlider.value);
+  for (let i = 0; i < stepsPerClick; i++) {
+    simStepOnce();
+  }
+  drawHeatmap();
+  updateInfo();
+});
+
+btnClear.addEventListener('click', clearSim);
+
+// ---- Main loop ----
+function loop() {
+  if (isDrawing && mouseGridX >= 0) {
+    applyBrush(mouseGridY, mouseGridX, drawSign);
+  }
+
+  if (isPlaying) {
+    const stepsPerFrame = parseInt(speedSlider.value) * 2;
+    for (let i = 0; i < stepsPerFrame; i++) {
+      simStepOnce();
+    }
+  }
+
+  if (isPlaying || isDrawing) {
+    drawHeatmap();
+    updateInfo();
+  }
+
+  requestAnimationFrame(loop);
+}
+
+// ---- Init ----
+computeDt();
+clearSim();
+presetCenter();
+resizeCanvas();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
